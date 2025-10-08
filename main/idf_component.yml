@@ -1,0 +1,8 @@
+dependencies:
+  idf: ">=5.0"
+  protocol_examples_common:
+    path: ${IDF_PATH}/examples/common_components/protocol_examples_common
+  mesh_lite:
+    version: "*"
+    # Please comment the following line, if this example is installed by idf.py create-project-from-example.
+    override_path: "../components/mesh_lite"
