@@ -12,8 +12,10 @@
 #include "protocol_examples_common.h"
 #include "esp_tls_crypto.h"
 #include <esp_http_server.h>
+#include "esp_mesh_lite.h"
 #include "http_server.h"
-
+#include "esp_mac.h"
+#include "lwip/inet.h"
 static const char *TAG = "http_server";
 #define ASYNC_WORKER_TASK_PRIORITY 5
 #define ASYNC_WORKER_TASK_STACK_SIZE CONFIG_EXAMPLE_ASYNC_WORKER_TASK_STACK_SIZE
@@ -272,9 +274,66 @@ void start_workers(void)
 esp_err_t mesh_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "uri: /mesh");
-    const char *welcome_msg = "<h1>Mesh Network</h1>"
-                              "<p>Mesh Nodes</p>";
-    httpd_resp_sendstr(req, welcome_msg);
+    uint32_t size = 0;
+    const node_info_list_t *node = esp_mesh_lite_get_nodes_list(&size);
+    for (uint32_t loop = 0; (loop < size) && (node != NULL); loop++)
+    {
+        struct in_addr ip_struct;
+        ip_struct.s_addr = node->node->ip_addr;
+        printf("%ld: %d, " MACSTR ", %s\r\n", loop + 1, node->node->level, MAC2STR(node->node->mac_addr), inet_ntoa(ip_struct));
+        node = node->next;
+    }
+
+    httpd_resp_set_type(req, "text/html");
+
+    httpd_resp_sendstr_chunk(req,
+        "<!DOCTYPE html>"
+        "<html><head><meta charset=\"utf-8\"/>"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>"
+        "<title>Mesh Network</title>"
+        "<style>"
+        "body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:16px;}"
+        "h1{margin:0 0 12px 0;font-size:20px;}"
+        "table{border-collapse:collapse;width:100%;max-width:800px;}"
+        "th,td{border:1px solid #ddd;padding:8px;font-size:14px;}"
+        "th{background:#f7f7f7;text-align:left;}"
+        "tbody tr:nth-child(even){background:#fafafa;}"
+        ".meta{margin:8px 0 16px 0;color:#555;font-size:13px;}"
+        "button{margin:8px 0 16px 0;padding:6px 10px;font-size:13px;}"
+        "</style>"
+        "</head><body>"
+        "<h1>Mesh Network</h1>"
+        "<div class=\"meta\">Refresh the page (Ctrl+R) to update</div>"
+        "<table>"
+        "<thead><tr><th>#</th><th>Level</th><th>MAC</th><th>IP</th></tr></thead>"
+        "<tbody>"
+    );
+
+    if (size == 0) {
+        httpd_resp_sendstr_chunk(req, "<tr><td colspan=\"4\">No nodes</td></tr>");
+    } else {
+        const node_info_list_t *cur = esp_mesh_lite_get_nodes_list(&size);
+        for (uint32_t i = 0; (i < size) && (cur != NULL); i++) {
+            struct in_addr ip_struct;
+            ip_struct.s_addr = cur->node->ip_addr;
+
+            char row[192];
+            int n = snprintf(row, sizeof(row),
+                "<tr><td>%lu</td><td>%d</td><td>" MACSTR "</td><td>%s</td></tr>",
+                (unsigned long)(i + 1),
+                cur->node->level,
+                MAC2STR(cur->node->mac_addr),
+                inet_ntoa(ip_struct)
+            );
+            if (n > 0) {
+                httpd_resp_send_chunk(req, row, (size_t)n);
+            }
+            cur = cur->next;
+        }
+    }
+
+    httpd_resp_sendstr_chunk(req, "</tbody></table></body></html>");
+    httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
 
