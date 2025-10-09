@@ -23,6 +23,80 @@
 
 static const char *TAG = "mesh";
 
+typedef struct
+{
+    char location[32];
+    uint8_t sta_mac[6];
+} node_config_t;
+
+static node_config_t node_config = {0};
+
+static TaskHandle_t wifi_scan_task_handle = NULL;
+#define DEFAULT_SCAN_LIST_SIZE CONFIG_EXAMPLE_SCAN_LIST_SIZE
+#ifdef CONFIG_EXAMPLE_USE_SCAN_CHANNEL_BITMAP
+#define USE_CHANNEL_BITMAP 1
+#define CHANNEL_LIST_SIZE 3
+static uint8_t channel_list[CHANNEL_LIST_SIZE] = {1, 6, 11};
+#endif /*CONFIG_EXAMPLE_USE_SCAN_CHANNEL_BITMAP*/
+
+#ifdef USE_CHANNEL_BITMAP
+static void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_list_size, wifi_scan_config_t *scan_config)
+{
+
+    for (uint8_t i = 0; i < channel_list_size; i++)
+    {
+        uint8_t channel = channel_list[i];
+        scan_config->channel_bitmap.ghz_2_channels |= (1 << channel);
+    }
+}
+#endif /*USE_CHANNEL_BITMAP*/
+/* Initialize Wi-Fi as sta and set scan method */
+static void wifi_scan(void)
+{
+    uint16_t number = DEFAULT_SCAN_LIST_SIZE;
+    wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
+    uint16_t ap_count = 0;
+    memset(ap_info, 0, sizeof(ap_info));
+
+#ifdef USE_CHANNEL_BITMAP
+    wifi_scan_config_t *scan_config = (wifi_scan_config_t *)calloc(1, sizeof(wifi_scan_config_t));
+    if (!scan_config)
+    {
+        ESP_LOGE(TAG, "Memory Allocation for scan config failed!");
+        return;
+    }
+    array_2_channel_bitmap(channel_list, CHANNEL_LIST_SIZE, scan_config);
+    esp_wifi_scan_start(scan_config, true);
+    free(scan_config);
+
+#else
+    esp_wifi_scan_start(NULL, true);
+#endif /*USE_CHANNEL_BITMAP*/
+
+    ESP_LOGI(TAG, "Max AP number ap_info can hold = %u", number);
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+    ESP_LOGI(TAG, "Total APs scanned = %u, actual AP number ap_info holds = %u", ap_count, number);
+    for (int i = 0; i < number; i++)
+    {
+        ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
+        ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
+        ESP_LOGI(TAG, "Channel \t\t%d", ap_info[i].primary);
+    }
+}
+
+static void wifi_scan_task(void *pvParameter)
+{
+
+    ESP_LOGI(TAG, "Start wifi_scan_task");
+
+    while (1)
+    {
+        wifi_scan();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
 /**
  * @brief Timed printing system information
  */
@@ -63,19 +137,47 @@ static void print_system_info_timercb(TimerHandle_t timer)
     }
 }
 
+//TODO read location from storage
 static esp_err_t esp_storage_init(void)
 {
-    esp_err_t ret = nvs_flash_init();
+    esp_err_t err = nvs_flash_init();
 
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
         ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
+        err = nvs_flash_init();
+    }
+    // Open NVS handle
+    ESP_LOGI(TAG, "\nOpening Non-Volatile Storage (NVS) handle...");
+    nvs_handle_t my_handle;
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+        return err;
     }
 
-    return ret;
+    size_t required_size = 0;
+    ESP_LOGI(TAG, "\nReading string from NVS...");
+    err = nvs_get_str(my_handle, "location", NULL, &required_size);
+    if (err == ESP_OK)
+    {
+        char *message = malloc(required_size);
+        err = nvs_get_str(my_handle, "location", message, &required_size);
+        if (err == ESP_OK)
+        {
+            ESP_LOGI(TAG, "Read string: %s", message);
+            size_t msg_len = strlen(message);
+            if (msg_len > 0 && msg_len <= 32)
+            {
+                strcpy(node_config.location, message);
+            }
+        }
+        free(message);
+    }
+    return err;
 }
 
 static void wifi_init(void)
@@ -167,6 +269,9 @@ void app_main()
     ESP_LOGI(TAG, "Child node");
     esp_mesh_lite_set_disallowed_level(1);
 #endif
+    //TODO
+    strcpy(node_config.location, "N/A");
+    esp_wifi_get_mac(ESP_IF_WIFI_STA, node_config.sta_mac);
     esp_mesh_lite_start();
     app_espnow_init();
 
@@ -175,4 +280,6 @@ void app_main()
     xTimerStart(timer, 0);
     start_workers();
     httpd_handle_t server = start_webserver();
+
+    xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
 }
