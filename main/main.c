@@ -20,6 +20,7 @@
 #include "sdkconfig.h"
 #include "http_server.h"
 #include <espnow.h>
+#include <nimble.h>
 
 static const char *TAG = "mesh";
 
@@ -80,6 +81,7 @@ static void wifi_scan(void)
     for (int i = 0; i < number; i++)
     {
         ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
+        ESP_LOGI(TAG, "BSID \t\t" MACSTR, MAC2STR(ap_info[i].bssid));
         ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
         ESP_LOGI(TAG, "Channel \t\t%d", ap_info[i].primary);
     }
@@ -137,7 +139,7 @@ static void print_system_info_timercb(TimerHandle_t timer)
     }
 }
 
-//TODO read location from storage
+// TODO read location from storage
 static esp_err_t esp_storage_init(void)
 {
     esp_err_t err = nvs_flash_init();
@@ -269,17 +271,18 @@ void app_main()
     ESP_LOGI(TAG, "Child node");
     esp_mesh_lite_set_disallowed_level(1);
 #endif
-    //TODO
+    // TODO
     strcpy(node_config.location, "N/A");
     esp_wifi_get_mac(ESP_IF_WIFI_STA, node_config.sta_mac);
     esp_mesh_lite_start();
     app_espnow_init();
-
-    TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
-                                       true, NULL, print_system_info_timercb);
-    xTimerStart(timer, 0);
+    //TODO unify system info printing with wifi scans..
+    // TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
+    //                                    true, NULL, print_system_info_timercb);
+    // xTimerStart(timer, 0);
     start_workers();
     httpd_handle_t server = start_webserver();
-
-    xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
+    //TODO: 
+    // xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
+    init_nimble();
 }
