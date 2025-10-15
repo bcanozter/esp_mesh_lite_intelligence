@@ -51,6 +51,12 @@ void print_manufacturer_data(const uint8_t *data, size_t data_len)
         return;
     }
 
+    printf("Manufacturer Data (Hex): ");
+    for (size_t i = 0; i < data_len; i++) {
+        printf("%02X ", data[i]);
+    }
+    printf("\n");
+
     uint16_t company_id = data[0] | (data[1] << 8);
     ESP_LOGI(TAG, "Manufacturer Company ID: 0x%04X", company_id);
     const uint8_t *payload = &data[2];
@@ -58,8 +64,8 @@ void print_manufacturer_data(const uint8_t *data, size_t data_len)
 
     switch (company_id)
     {
-    case 0x004C:
-    { // Apple, Inc.
+    case 0x004C: // Apple, Inc.
+    {
         ESP_LOGI(TAG, "Vendor: Apple, Inc.");
 
         if (payload_len < 2)
@@ -72,35 +78,55 @@ void print_manufacturer_data(const uint8_t *data, size_t data_len)
         uint8_t subtype = payload[1];
         ESP_LOGI(TAG, "Type: 0x%02X  SubType: 0x%02X", type, subtype);
 
-        // Identify Apple-specific device type
+        // Apple BLE Type/Subtype table
         if (type == 0x02 && subtype == 0x15)
         {
             ESP_LOGI(TAG, "Detected Apple iBeacon device");
         }
         else if (type == 0x10)
         {
-            ESP_LOGI(TAG, "Detected Apple W1/H1/H2 device (AirPods, Beats, or accessory)");
+            switch (subtype)
+            {
+            case 0x05:
+                ESP_LOGI(TAG, "Detected Apple AirPods — pairing/presence broadcast");
+                break;
+            case 0x06:
+                ESP_LOGI(TAG, "Detected Apple AirPods — in-case or charging state broadcast");
+                break;
+            case 0x07:
+                ESP_LOGI(TAG, "Detected Apple AirPods — active/connected broadcast");
+                break;
+            default:
+                ESP_LOGI(TAG, "Detected Apple AirPods (unknown subtype 0x%02X)", subtype);
+                break;
+            }
         }
-        else if (type == 0x12 && subtype == 0x02)
+        else if (type == 0x12)
         {
-            ESP_LOGI(TAG, "Detected Apple Continuity device (iPhone, iPad, or Mac)");
-        }
-        else if (type == 0x12 && subtype == 0x03)
-        {
-            ESP_LOGI(TAG, "Detected Apple Continuity device variant");
-        }
-        else if (type == 0x12 && subtype == 0x19)
-        {
-            ESP_LOGI(TAG, "Detected Apple Find My / AirTag device");
-        }
-        else if (type == 0x12 && subtype == 0x18)
-        {
-            ESP_LOGI(TAG, "Detected Apple Watch device");
+            switch (subtype)
+            {
+            case 0x02:
+                ESP_LOGI(TAG, "Detected Apple Continuity device (iPhone/Watch/Mac) — proximity or presence broadcast");
+                break;
+            case 0x03:
+                ESP_LOGI(TAG, "Detected Apple Continuity device variant");
+                break;
+            case 0x18:
+                ESP_LOGI(TAG, "Detected Apple Watch Continuity broadcast");
+                break;
+            case 0x19:
+                ESP_LOGI(TAG, "Detected Apple Find My / AirTag broadcast");
+                break;
+            default:
+                ESP_LOGI(TAG, "Detected Apple Continuity BLE frame (unknown subtype 0x%02X)", subtype);
+                break;
+            }
         }
         else
         {
             ESP_LOGI(TAG, "Unknown Apple BLE type (Type=0x%02X, SubType=0x%02X)", type, subtype);
         }
+
         break;
     }
 
