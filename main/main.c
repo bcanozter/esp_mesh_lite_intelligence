@@ -21,6 +21,7 @@
 #include "http_server.h"
 #include <espnow.h>
 #include <nimble.h>
+#include <sensor.h>
 
 static const char *TAG = "mesh";
 
@@ -290,4 +291,5 @@ void app_main()
     // TODO:
     xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
     init_nimble();
+    init_sensor_read_task();
 }

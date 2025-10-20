@@ -8,6 +8,7 @@
 #include "freertos/semphr.h"
 
 #include <espnow.h>
+#include <sensor.h>
 
 static const char *TAG = "espnow";
 
@@ -230,9 +231,27 @@ static void espnow_task(void *pvParameter)
                      recv_cb->data_len,
                      recv_seq,
                      current_seq);
-            ESP_LOGI(TAG, "Message:\"%s\" from:" MACSTR, espnow_payload, MAC2STR(recv_cb->mac_addr));
 #endif
-
+            sensor_packet_t *sensor_data = (sensor_packet_t *)espnow_payload;
+            uint64_t timestamp = sensor_data->timestamp;
+            uint32_t sensor_id = sensor_data->sensor_id;
+            sensor_type_t type = sensor_data->type;
+            if (type == SENSOR_TYPE_TEMPERATURE)
+            {
+                float temperature = sensor_data->data.temperature.value;
+#ifdef CONFIG_DEBUG
+                ESP_LOGI(TAG, "Timestamp: %llu, Sensor ID: %lu, Type: %u, Temperature: %.2f",
+                         timestamp, sensor_id, type, temperature);
+#endif
+            }
+            else if (type == SENSOR_TYPE_HUMIDITY)
+            {
+                float humidity = sensor_data->data.humidity.value;
+#ifdef CONFIG_DEBUG
+                ESP_LOGI(TAG, "Timestamp: %llu, Sensor ID: %lu, Type: %u, Humidity: %.2f",
+                         timestamp, sensor_id, type, humidity);
+#endif
+            }
             free(recv_cb->data);
             recv_cb->data = NULL;
             break;
@@ -243,24 +262,18 @@ static void espnow_task(void *pvParameter)
     }
 }
 
-void esp_now_send_broadcast(const uint8_t *payload, bool seq_init)
+esp_err_t esp_now_send_broadcast(const uint8_t *payload, size_t payload_len, bool seq_init)
 {
-    size_t payload_len = strlen((char *)payload);
+    esp_err_t ret = ESP_OK;
     uint8_t *buf = calloc(1, payload_len + ESPNOW_PAYLOAD_HEAD_LEN);
     espnow_data_prepare(buf, payload, payload_len, seq_init);
     app_espnow_create_peer(s_broadcast_mac);
-    esp_err_t ret = esp_mesh_lite_espnow_send(ESPNOW_DATA_TYPE_RESERVE, s_broadcast_mac, buf, payload_len + ESPNOW_PAYLOAD_HEAD_LEN);
+    ret = esp_mesh_lite_espnow_send(ESPNOW_DATA_TYPE_RESERVE, s_broadcast_mac, buf, payload_len + ESPNOW_PAYLOAD_HEAD_LEN);
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "Send error: %d [%s %d]", ret, __func__, __LINE__);
     }
-}
-
-static void hello_world_timer_callback(TimerHandle_t timer)
-{
-    char msg_buffer[50];
-    sprintf(msg_buffer, "hello world");
-    esp_now_send_broadcast((const uint8_t *)&msg_buffer, true);
+    return ret;
 }
 
 void espnow_deinit(void)
@@ -316,7 +329,5 @@ esp_err_t app_espnow_init(void)
                                                     NULL, esp_now_send_timer_cb);
     xTimerStart(esp_now_send_timer, portMAX_DELAY);
 
-    TimerHandle_t hello_world_timer = xTimerCreate("hello_world_timer", pdMS_TO_TICKS(1000), pdTRUE, NULL, hello_world_timer_callback);
-    xTimerStart(hello_world_timer, portMAX_DELAY);
     return ESP_OK;
 }

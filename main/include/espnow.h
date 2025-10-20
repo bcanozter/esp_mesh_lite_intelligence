@@ -22,5 +22,6 @@ typedef struct
 } __attribute__((packed)) app_espnow_data_t;
 
 esp_err_t app_espnow_init(void);
+esp_err_t esp_now_send_broadcast(const uint8_t *, size_t , bool);
 
 #endif
