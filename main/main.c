@@ -74,6 +74,7 @@ static void wifi_scan(void)
     esp_wifi_scan_start(NULL, true);
 #endif /*USE_CHANNEL_BITMAP*/
 
+#ifdef CONFIG_DEBUG
     ESP_LOGI(TAG, "Max AP number ap_info can hold = %u", number);
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
@@ -85,6 +86,7 @@ static void wifi_scan(void)
         ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
         ESP_LOGI(TAG, "Channel \t\t%d", ap_info[i].primary);
     }
+#endif
 }
 
 static void wifi_scan_task(void *pvParameter)
@@ -95,7 +97,7 @@ static void wifi_scan_task(void *pvParameter)
     while (1)
     {
         wifi_scan();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(60000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -276,13 +278,16 @@ void app_main()
     esp_wifi_get_mac(ESP_IF_WIFI_STA, node_config.sta_mac);
     esp_mesh_lite_start();
     app_espnow_init();
-    //TODO unify system info printing with wifi scans..
-    // TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
-    //                                    true, NULL, print_system_info_timercb);
-    // xTimerStart(timer, 0);
+
+#ifdef CONFIG_DEBUG
+    TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
+                                       true, NULL, print_system_info_timercb);
+    xTimerStart(timer, 0);
+#endif
+
     start_workers();
     httpd_handle_t server = start_webserver();
-    //TODO: 
-    // xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
+    // TODO:
+    xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
     init_nimble();
 }

@@ -51,7 +51,7 @@ void espnow_data_prepare(uint8_t *buf, const uint8_t *payload, size_t payload_le
         temp->seq = ++current_seq;
     }
     temp->mesh_id = CONFIG_MESH_ID;
-#if ESPNOW_DEBUG
+#ifdef CONFIG_DEBUG
     printf("send seq: %" PRIu32 ", current_seq: %" PRIu32 "\r\n", temp->seq, current_seq);
     ESP_LOGW(TAG, "free heap %" PRIu32 ", minimum %" PRIu32 "", esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
 #endif
@@ -157,7 +157,7 @@ static void espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t status
         return;
     }
 
-#if ESPNOW_DEBUG
+#ifdef CONFIG_DEBUG
     if (status == ESP_NOW_SEND_SUCCESS)
     {
         ESP_LOGW(TAG, "Send OK to " MACSTR " %s %d", MAC2STR(mac_addr), __func__, __LINE__);
@@ -223,7 +223,7 @@ static void espnow_task(void *pvParameter)
             memset(espnow_payload, 0x0, ESPNOW_PAYLOAD_MAX_LEN);
             memcpy(espnow_payload, buf->payload, recv_cb->data_len - ESPNOW_PAYLOAD_HEAD_LEN);
 
-#if ESPNOW_DEBUG
+#ifdef CONFIG_DEBUG
 
             ESP_LOGI(TAG, "Receive broadcast data from: " MACSTR ", len: %d, recv_seq: %" PRIu32 ", current_seq: %" PRIu32 "",
                      MAC2STR(recv_cb->mac_addr),

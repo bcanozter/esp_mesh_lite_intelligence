@@ -1,5 +1,10 @@
 menu "ESP Mesh Lite Configuration"
-
+    config DEBUG
+        bool
+        default n
+        prompt "Debug"
+        help
+            Enable screen printing for debugging purposes.
     config MESH_ROOT
         select JOIN_MESH_IGNORE_ROUTER_STATUS
         bool "Root device"

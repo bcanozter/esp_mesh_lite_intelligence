@@ -11,7 +11,6 @@ typedef struct esp_now_msg_send
     void *sent_msg;
 } esp_now_msg_send_t;
 
-#define ESPNOW_DEBUG (0)
 #define ESPNOW_PAYLOAD_HEAD_LEN (5)
 #define ESPNOW_QUEUE_SIZE (50)
 
