@@ -14,13 +14,13 @@ static TaskHandle_t sensor_main_task_handle = NULL;
 static void broadcast_sensor_readings(void)
 {
     // dummy data
-    sensor_packet_t msg_buffer = {
-        .timestamp = 0,
-        .sensor_id = 2,
-        .type = SENSOR_TYPE_HUMIDITY,
-        .data.humidity.value = 85.5f,
-    };
+    sensor_packet_t *msg_buffer = (sensor_packet_t *)malloc(sizeof(sensor_packet_t));
+    msg_buffer->timestamp = 0;
+    msg_buffer->sensor_id = 2;
+    msg_buffer->type = SENSOR_TYPE_HUMIDITY;
+    msg_buffer->data.humidity.value = 85.5f;
     esp_now_send_broadcast((const uint8_t *)&msg_buffer, sizeof(sensor_packet_t), true);
+    free(msg_buffer);
 }
 
 static void sensor_main_task(void *pvParameter)
