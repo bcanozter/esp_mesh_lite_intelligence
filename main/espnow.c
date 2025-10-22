@@ -273,6 +273,13 @@ esp_err_t esp_now_send_broadcast(const uint8_t *payload, size_t payload_len, boo
     {
         ESP_LOGE(TAG, "Send error: %d [%s %d]", ret, __func__, __LINE__);
     }
+
+    xSemaphoreTake(sent_msgs_mutex, portMAX_DELAY);
+    sent_msgs->retry_times = 0;
+    sent_msgs->max_retry = 0;
+    sent_msgs->msg_len = payload_len + ESPNOW_PAYLOAD_HEAD_LEN;
+    sent_msgs->sent_msg = buf;
+    xSemaphoreGive(sent_msgs_mutex);
     return ret;
 }
 
