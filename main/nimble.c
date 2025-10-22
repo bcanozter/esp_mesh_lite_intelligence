@@ -52,7 +52,8 @@ void print_manufacturer_data(const uint8_t *data, size_t data_len)
     }
 
     printf("Manufacturer Data (Hex): ");
-    for (size_t i = 0; i < data_len; i++) {
+    for (size_t i = 0; i < data_len; i++)
+    {
         printf("%02X ", data[i]);
     }
     printf("\n");

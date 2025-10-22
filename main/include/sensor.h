@@ -27,7 +27,6 @@ typedef struct
     float value;
 } humidity_sensor_data_t;
 
-
 typedef union
 {
     temperature_sensor_data_t temperature;
@@ -41,7 +40,6 @@ typedef struct
     sensor_type_t type;
     sensor_data_u data;
 } sensor_packet_t;
-
 
 esp_err_t init_sensor_read_task(void);
 #endif

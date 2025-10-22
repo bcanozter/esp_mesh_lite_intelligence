@@ -31,7 +31,7 @@ static void sensor_main_task(void *pvParameter)
     while (1)
     {
         broadcast_sensor_readings();
-        vTaskDelay(10000 / portTICK_PERIOD_MS); //frequent for debugging purposes..
+        vTaskDelay(10000 / portTICK_PERIOD_MS); // frequent for debugging purposes..
     }
 }
 
