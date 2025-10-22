@@ -4,6 +4,17 @@
 #include <esp_err.h>
 #include <esp_http_server.h>
 
+#define ASYNC_WORKER_TASK_PRIORITY 5
+#define ASYNC_WORKER_TASK_STACK_SIZE CONFIG_EXAMPLE_ASYNC_WORKER_TASK_STACK_SIZE
+
+
+typedef esp_err_t (*httpd_req_handler_t)(httpd_req_t *);
+typedef struct
+{
+    httpd_req_t *req;
+    httpd_req_handler_t handler;
+} httpd_async_req_t;
+
 esp_err_t long_async(httpd_req_t *);
 
 void worker_task(void *p);

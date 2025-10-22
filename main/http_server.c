@@ -16,9 +16,8 @@
 #include "http_server.h"
 #include "esp_mac.h"
 #include "lwip/inet.h"
+
 static const char *TAG = "http_server";
-#define ASYNC_WORKER_TASK_PRIORITY 5
-#define ASYNC_WORKER_TASK_STACK_SIZE CONFIG_EXAMPLE_ASYNC_WORKER_TASK_STACK_SIZE
 
 QueueHandle_t request_queue;
 
@@ -28,12 +27,6 @@ SemaphoreHandle_t worker_ready_count;
 // Each worker has its own thread
 TaskHandle_t worker_handles[CONFIG_EXAMPLE_MAX_ASYNC_REQUESTS];
 
-typedef esp_err_t (*httpd_req_handler_t)(httpd_req_t *);
-typedef struct
-{
-    httpd_req_t *req;
-    httpd_req_handler_t handler;
-} httpd_async_req_t;
 // queue an HTTP req to the worker queue
 esp_err_t queue_request(httpd_req_t *req, httpd_req_handler_t handler)
 {
