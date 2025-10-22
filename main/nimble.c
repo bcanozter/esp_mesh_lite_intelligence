@@ -304,7 +304,7 @@ int blecent_gap_event(struct ble_gap_event *event, void *arg)
         const ble_addr_t *addr = &event->disc.addr;
 
         // printf("Device rssi %d\n",event->disc.rssi);
-#ifdef CONFIG_DEBUG
+#ifdef CONFIG_APP_DEBUG
         if (fields.mfg_data_len > 0 && event->disc.rssi > -60)
         {
             ESP_LOGI(TAG, "Device Address: " MACSTR "\n",

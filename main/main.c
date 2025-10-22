@@ -75,7 +75,7 @@ static void wifi_scan(void)
     esp_wifi_scan_start(NULL, true);
 #endif /*USE_CHANNEL_BITMAP*/
 
-#ifdef CONFIG_DEBUG
+#ifdef CONFIG_APP_DEBUG
     ESP_LOGI(TAG, "Max AP number ap_info can hold = %u", number);
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
@@ -280,7 +280,7 @@ void app_main()
     esp_mesh_lite_start();
     app_espnow_init();
 
-#ifdef CONFIG_DEBUG
+#ifdef CONFIG_APP_DEBUG
     TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
                                        true, NULL, print_system_info_timercb);
     xTimerStart(timer, 0);

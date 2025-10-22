@@ -1,6 +1,21 @@
 # Override some defaults in mesh application project.
 
 #
+# App Specific
+#
+CONFIG_MESH_ROOT=y
+CONFIG_APP_DEBUG=n
+CONFIG_MESH_ID=77
+CONFIG_MESH_CHANNEL=11
+CONFIG_ESPNOW_CHANNEL=1
+
+#
+# Partition Table
+#
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+# end of Partition Table
+
+#
 # FreeRTOS
 #
 CONFIG_FREERTOS_HZ=1000
