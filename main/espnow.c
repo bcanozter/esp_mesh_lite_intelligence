@@ -323,7 +323,7 @@ esp_err_t app_espnow_init(void)
         return ESP_FAIL;
     }
 
-    xTaskCreate(espnow_task, "espnow_task", 3 * 1024, NULL, 4, &espnow_task_ctrl_handle);
+    xTaskCreate(espnow_task, "espnow_task", ESPNOW_TASK_STACK_SIZE, NULL, ESPNOW_TASK_PRIORITY, &espnow_task_ctrl_handle);
 
     sent_msgs = (esp_now_msg_send_t *)malloc(sizeof(esp_now_msg_send_t));
     sent_msgs->max_retry = 0;

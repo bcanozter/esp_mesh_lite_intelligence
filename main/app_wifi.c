@@ -88,7 +88,7 @@ void wifi_init(void)
     };
     esp_bridge_wifi_set_config(WIFI_IF_AP, &wifi_softap_config);
 
-    xTaskCreate(wifi_scan_task, "wifi_scan_task", 3 * 1024, NULL, 4, &wifi_scan_task_handle);
+    xTaskCreate(wifi_scan_task, "wifi_scan_task", WIFI_SCAN_TASK_STACK_SIZE, NULL, WIFI_SCAN_TASK_PRIORITY, &wifi_scan_task_handle);
 }
 
 void app_wifi_set_softap_info(void)

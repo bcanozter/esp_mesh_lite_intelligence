@@ -3,6 +3,9 @@
 
 #include "esp_now.h"
 
+#define ESPNOW_TASK_STACK_SIZE 3 * 1024
+#define ESPNOW_TASK_PRIORITY 5
+
 typedef struct esp_now_msg_send
 {
     uint32_t retry_times;

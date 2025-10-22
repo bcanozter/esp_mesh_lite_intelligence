@@ -38,6 +38,6 @@ static void sensor_main_task(void *pvParameter)
 esp_err_t init_sensor_read_task(void)
 {
     esp_err_t ret = ESP_OK;
-    xTaskCreate(sensor_main_task, "sensor_main_task", 4 * 1024, NULL, 4, &sensor_main_task_handle);
+    xTaskCreate(sensor_main_task, "sensor_main_task", SENSOR_MAIN_TASK_STACK_SIZE, NULL, SENSOR_MAIN_TASK_PRIORITY, &sensor_main_task_handle);
     return ret;
 }

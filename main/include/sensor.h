@@ -5,6 +5,11 @@
 #include <stdbool.h>
 #include "espnow.h"
 
+
+#define SENSOR_MAIN_TASK_STACK_SIZE 2 * 1024
+#define SENSOR_MAIN_TASK_PRIORITY 5
+
+
 typedef uint8_t sensor_type_t;
 enum
 {
