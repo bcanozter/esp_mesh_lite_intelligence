@@ -1,5 +1,5 @@
-#ifndef NIMBLE_H
-#define NIMBLE_H
+#ifndef __NIMBLE_H__
+#define __NIMBLE_H__
 
 /* BLE */
 #include "nimble/nimble_port.h"
@@ -40,4 +40,5 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
+
 #endif
