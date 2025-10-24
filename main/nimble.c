@@ -116,7 +116,10 @@ void print_manufacturer_data(const uint8_t *data, size_t data_len)
                 ESP_LOGI(TAG, "Detected Apple Watch Continuity broadcast");
                 break;
             case 0x19:
-                ESP_LOGI(TAG, "Detected Apple Find My / AirTag broadcast");
+                if (data_len == 29)
+                {
+                    ESP_LOGI(TAG, "Detected Apple Find My / AirTag broadcast");
+                }
                 break;
             default:
                 ESP_LOGI(TAG, "Detected Apple Continuity BLE frame (unknown subtype 0x%02X)", subtype);
