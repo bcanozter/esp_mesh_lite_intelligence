@@ -6,7 +6,9 @@
 #include "app_wifi.h"
 
 static const char *TAG = "wifi";
-static TaskHandle_t wifi_scan_task_handle = NULL;
+static char softap_ssid[33] = "";
+static char softap_psw[64] = "";
+static TaskHandle_t wifi_task_handle = NULL;
 
 #ifdef USE_CHANNEL_BITMAP
 void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_list_size, wifi_scan_config_t *scan_config)
@@ -20,7 +22,35 @@ void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_
 }
 #endif
 
-/* Initialize Wi-Fi as sta and set scan method */
+#if CONFIG_ENABLE_WIFI_STA
+static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data)
+{
+    ESP_LOGI(TAG, "EVENT ID: %d, EVENT_BASE %s", event_id, event_base);
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED)
+    {
+        wifi_event_ap_staconnected_t *event = (wifi_event_ap_staconnected_t *)event_data;
+        ESP_LOGI(TAG, "Station " MACSTR " joined, AID=%d",
+                 MAC2STR(event->mac), event->aid);
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
+        wifi_event_ap_stadisconnected_t *event = (wifi_event_ap_stadisconnected_t *)event_data;
+        ESP_LOGI(TAG, "Station " MACSTR " left, AID=%d, reason:%d",
+                 MAC2STR(event->mac), event->aid, event->reason);
+    }
+
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    {
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
+        s_retry_num = 0;
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+#endif
+
+// TODO: get connected clients
 void wifi_scan(void)
 {
     uint16_t number = DEFAULT_SCAN_LIST_SIZE;
@@ -43,7 +73,7 @@ void wifi_scan(void)
     esp_wifi_scan_start(NULL, true);
 #endif /*USE_CHANNEL_BITMAP*/
 
-#ifdef CONFIG_APP_DEBUG
+#if CONFIG_APP_DEBUG
     ESP_LOGI(TAG, "Max AP number ap_info can hold = %u", number);
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
@@ -58,25 +88,27 @@ void wifi_scan(void)
 #endif
 }
 
-void wifi_scan_task(void *pvParameter)
+void wifi_task_main(void *pvParameter)
 {
 
-    ESP_LOGI(TAG, "Start wifi_scan_task");
-
+    ESP_LOGI(TAG, "Start wifi_task");
+    wifi_init();
     while (1)
     {
-        wifi_scan();
+        // TODO
+        //  gather client info
+        //  wifi_scan() //rename
         vTaskDelay(60000 / portTICK_PERIOD_MS);
     }
 }
 
-void wifi_init(void)
+void wifi_init_ap(void)
 {
-    // Station
+#if !(CONFIG_ENABLE_WIFI_STA)
     wifi_config_t wifi_config;
     memset(&wifi_config, 0x0, sizeof(wifi_config_t));
     esp_bridge_wifi_set_config(WIFI_IF_STA, &wifi_config);
-
+#endif
     // Softap
     wifi_config_t wifi_softap_config = {
         .ap = {
@@ -87,14 +119,77 @@ void wifi_init(void)
         },
     };
     esp_bridge_wifi_set_config(WIFI_IF_AP, &wifi_softap_config);
+}
 
-    xTaskCreate(wifi_scan_task, "wifi_scan_task", WIFI_SCAN_TASK_STACK_SIZE, NULL, WIFI_SCAN_TASK_PRIORITY, &wifi_scan_task_handle);
+#if CONFIG_ENABLE_WIFI_STA
+void wifi_init_sta(void)
+{
+
+    s_wifi_event_group = xEventGroupCreate();
+
+    esp_event_handler_instance_t instance_any_id;
+    esp_event_handler_instance_t instance_got_ip;
+
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                        ESP_EVENT_ANY_ID,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        &instance_any_id));
+
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                                                        IP_EVENT_STA_GOT_IP,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        &instance_got_ip));
+    // Station
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = CONFIG_ESP_WIFI_SSID,
+            .password = CONFIG_ESP_WIFI_PASSWORD,
+        },
+    };
+    esp_bridge_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                           pdFALSE,
+                                           pdFALSE,
+                                           portMAX_DELAY);
+
+    if (bits & WIFI_CONNECTED_BIT)
+    {
+        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
+                 softap_ssid, softap_psw);
+    }
+    else if (bits & WIFI_FAIL_BIT)
+    {
+        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
+                 CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "UNEXPECTED EVENT");
+        return;
+    }
+}
+#endif
+
+void wifi_init(void)
+{
+#if CONFIG_ENABLE_WIFI_STA
+    wifi_init_sta();
+#endif
+    wifi_init_ap();
+}
+
+void wifi_task_init(void)
+{
+    xTaskCreate(wifi_task_main, "wifi_task", WIFI_TASK_STACK_SIZE, NULL, WIFI_TASK_PRIORITY, &wifi_task_handle);
 }
 
 void app_wifi_set_softap_info(void)
 {
-    char softap_ssid[33];
-    char softap_psw[64];
+    // char softap_ssid[33];
+    // char softap_psw[64];
     uint8_t softap_mac[6];
     size_t ssid_size = sizeof(softap_ssid);
     size_t psw_size = sizeof(softap_psw);

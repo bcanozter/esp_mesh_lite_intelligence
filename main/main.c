@@ -129,7 +129,7 @@ void app_main()
 
     esp_bridge_create_all_netif();
 
-    wifi_init();
+    wifi_task_init();
 
     esp_mesh_lite_config_t mesh_lite_config = ESP_MESH_LITE_DEFAULT_INIT();
     mesh_lite_config.join_mesh_ignore_router_status = true;
@@ -152,12 +152,11 @@ void app_main()
 
     strcpy(node_config.location, "N/A");
     esp_wifi_get_mac(ESP_IF_WIFI_STA, node_config.sta_mac);
-    
     esp_mesh_lite_start();
 
     app_espnow_init();
 
-#ifdef CONFIG_APP_DEBUG
+#if CONFIG_APP_DEBUG
     TimerHandle_t timer = xTimerCreate("print_system_info", 10000 / portTICK_PERIOD_MS,
                                        true, NULL, print_system_info_timercb);
     xTimerStart(timer, 0);

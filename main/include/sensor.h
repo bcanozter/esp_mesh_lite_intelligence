@@ -6,7 +6,7 @@
 #include "espnow.h"
 
 
-#define SENSOR_MAIN_TASK_STACK_SIZE 2 * 1024
+#define SENSOR_MAIN_TASK_STACK_SIZE 3 * 1024
 #define SENSOR_MAIN_TASK_PRIORITY 5
 
 
