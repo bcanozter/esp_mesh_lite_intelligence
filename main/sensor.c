@@ -19,8 +19,9 @@ static void broadcast_sensor_readings(void)
     msg_buffer->sensor_id = 2;
     msg_buffer->type = SENSOR_TYPE_HUMIDITY;
     msg_buffer->data.humidity.value = 85.5f;
-    esp_now_send_broadcast((const uint8_t *)&msg_buffer, sizeof(sensor_packet_t), true);
+    esp_now_send_broadcast((const uint8_t *)msg_buffer, sizeof(sensor_packet_t), true);
     free(msg_buffer);
+    msg_buffer = NULL;
 }
 
 static void sensor_main_task(void *pvParameter)
