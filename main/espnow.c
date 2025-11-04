@@ -71,7 +71,7 @@ esp_err_t app_espnow_create_peer(uint8_t dst_mac[ESP_NOW_ETH_ALEN])
     memset(peer, 0, sizeof(esp_now_peer_info_t));
 
     esp_now_get_peer(dst_mac, peer);
-    peer->channel = 0;
+    peer->channel = CONFIG_ESPNOW_CHANNEL;
     peer->ifidx = ESP_IF_WIFI_STA;
     peer->encrypt = false;
     // memcpy(peer->lmk, CONFIG_ESPNOW_LMK, ESP_NOW_KEY_LEN);
