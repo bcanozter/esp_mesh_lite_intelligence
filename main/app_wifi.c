@@ -5,10 +5,19 @@
 #include "esp_mesh_lite.h"
 #include "app_wifi.h"
 
+#include "esp_netif.h"
+#include "esp_netif_net_stack.h"
+#include "lwip/ip4_addr.h"
+#include "lwip/ip_addr.h"
+#include "lwip/inet.h"
+#include "lwip/netif.h"
+#include "lwip/etharp.h"
+
 static const char *TAG = "wifi";
 static char softap_ssid[33] = "";
 static char softap_psw[64] = "";
 static TaskHandle_t wifi_task_handle = NULL;
+bool sta_got_ip = false;
 
 #ifdef USE_CHANNEL_BITMAP
 void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_list_size, wifi_scan_config_t *scan_config)
@@ -38,6 +47,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         wifi_event_ap_stadisconnected_t *event = (wifi_event_ap_stadisconnected_t *)event_data;
         ESP_LOGI(TAG, "Station " MACSTR " left, AID=%d, reason:%d",
                  MAC2STR(event->mac), event->aid, event->reason);
+        sta_got_ip = false;
     }
 
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
@@ -46,9 +56,95 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        sta_got_ip = true;
     }
 }
 #endif
+
+void arp_scan()
+{
+    ESP_LOGI(TAG, "Start ARP scan");
+
+    // esp_mesh_lite.c line 45.
+    esp_netif_t *sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (!sta_netif)
+    {
+        ESP_LOGE(TAG, "Failed to get sta_netif");
+        return;
+    }
+
+    struct netif *lwip_netif = (struct netif *)esp_netif_get_netif_impl(sta_netif);
+    if (!lwip_netif)
+    {
+        ESP_LOGE(TAG, "Failed to get lwIP netif");
+        return;
+    }
+
+    // Get local IP info
+    esp_netif_ip_info_t ip_info;
+    if (esp_netif_get_ip_info(sta_netif, &ip_info) != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get ip info");
+        return;
+    }
+
+    ip4_addr_t ip = {.addr = ip_info.ip.addr};
+    ip4_addr_t netmask = {.addr = ip_info.netmask.addr};
+
+    char ip_str[16], nm_str[16];
+    inet_ntoa_r(ip, ip_str, sizeof(ip_str));
+    inet_ntoa_r(netmask, nm_str, sizeof(nm_str));
+
+    uint32_t network_n = ntohl(ip_info.ip.addr) & ntohl(ip_info.netmask.addr); // e.g 192.168.1.136 & 255.255.255.0
+    uint32_t broadcast_n = network_n | (~(ntohl(ip_info.ip.addr)));
+
+    ESP_LOGI(TAG, "Station IP: %s  Netmask Addr: %s",
+             ip_str, nm_str);
+
+    uint32_t first_host = network_n + 1;
+    uint32_t last_host = broadcast_n - 1;
+    if (first_host > last_host)
+    {
+        ESP_LOGW(TAG, "Error range of hosts");
+        return;
+    }
+
+    ip4_addr_t first_ip = {.addr = htonl(first_host)};
+    ip4_addr_t last_ip = {.addr = htonl(last_host)};
+
+    // Debug
+    char first_ip_str[IP4ADDR_STRLEN_MAX], last_ip_str[IP4ADDR_STRLEN_MAX];
+    ip4addr_ntoa_r(&first_ip, first_ip_str, sizeof(first_ip_str));
+    ip4addr_ntoa_r(&last_ip, last_ip_str, sizeof(last_ip_str));
+    ESP_LOGI(TAG, "First IP: %s  Last IP: %s",
+             first_ip_str, last_ip_str);
+
+    // Iterate the subnet
+    for (uint32_t h = first_host; h <= last_host; ++h)
+    {
+        ip4_addr_t target = {.addr = htonl(h)};
+        char ip_str[IP4ADDR_STRLEN_MAX];
+        ip4addr_ntoa_r(&target, ip_str, sizeof(ip_str));
+
+        // Send ARP request
+        err_t res = etharp_request(lwip_netif, &target);
+        if (res == ERR_OK)
+            ESP_LOGD(TAG, "ARP request sent for %s", ip_str);
+
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        const ip4_addr_t *ip_ret = NULL;
+        struct eth_addr *eth_ret = NULL;
+        if (etharp_find_addr(lwip_netif, &target, &eth_ret, &ip_ret) != -1 && eth_ret != NULL)
+        {
+            ESP_LOGI(TAG, "Host %s -> " MACSTR,
+                     ip_str,
+                     MAC2STR(eth_ret->addr));
+        }
+    }
+
+    ESP_LOGI(TAG, "ARP scan finished");
+}
 
 // TODO: get connected clients
 void wifi_scan(void)
@@ -98,6 +194,10 @@ void wifi_task_main(void *pvParameter)
         // TODO
         //  gather client info
         //  wifi_scan() //rename
+        // if (sta_got_ip)
+        // {
+        //     arp_scan();
+        // }
         vTaskDelay(60000 / portTICK_PERIOD_MS);
     }
 }

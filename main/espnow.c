@@ -6,7 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "freertos/semphr.h"
-
+#include "esp_wifi.h"
 #include <espnow.h>
 #include <sensor.h>
 
@@ -71,7 +71,14 @@ esp_err_t app_espnow_create_peer(uint8_t dst_mac[ESP_NOW_ETH_ALEN])
     memset(peer, 0, sizeof(esp_now_peer_info_t));
 
     esp_now_get_peer(dst_mac, peer);
-    peer->channel = CONFIG_ESPNOW_CHANNEL;
+
+    uint8_t channel = CONFIG_MESH_CHANNEL;
+#if CONFIG_ENABLE_WIFI_STA
+    wifi_second_chan_t second = 0;
+    esp_wifi_get_channel(&channel, &second);
+#endif
+    //
+    peer->channel = channel;
     peer->ifidx = ESP_IF_WIFI_STA;
     peer->encrypt = false;
     // memcpy(peer->lmk, CONFIG_ESPNOW_LMK, ESP_NOW_KEY_LEN);

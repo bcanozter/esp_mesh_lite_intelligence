@@ -29,10 +29,14 @@ void wifi_task_main(void *);
 
 #if CONFIG_ENABLE_WIFI_STA
 #define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+#define WIFI_FAIL_BIT BIT1
+extern bool sta_got_ip;
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 void wifi_init_sta(void);
+#if CONFIG_ENABLE_ARP_SCAN
+void arp_scan();
+#endif
 #endif
 
 #endif

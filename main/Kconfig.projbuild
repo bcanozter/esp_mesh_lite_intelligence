@@ -191,6 +191,11 @@ menu "ESP Mesh Lite Configuration"
             config ESP_WIFI_AUTH_WAPI_PSK
                 bool "WAPI PSK"
         endchoice
+
+        config ENABLE_ARP_SCAN
+        bool
+        default n
+        prompt "Enable ARP Scan"
     endif
     endmenu
 endmenu

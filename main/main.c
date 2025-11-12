@@ -25,6 +25,7 @@
 #include "app_wifi.h"
 
 static const char *TAG = "mesh";
+extern bool sta_got_ip;
 
 typedef struct
 {
@@ -153,6 +154,12 @@ void app_main()
     strcpy(node_config.location, "N/A");
     esp_wifi_get_mac(ESP_IF_WIFI_STA, node_config.sta_mac);
     esp_mesh_lite_start();
+
+#if CONFIG_ENABLE_WIFI_STA
+    while (!sta_got_ip)
+    {
+    }
+#endif
 
     app_espnow_init();
 
