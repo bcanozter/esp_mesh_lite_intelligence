@@ -26,11 +26,11 @@ void blecent_scan(void)
      * Perform a passive scan.  I.e., don't send follow-up scan requests to
      * each advertiser.
      */
-    disc_params.passive = 0;
+    disc_params.passive = 1;
 
     /* Use defaults for the rest of the parameters. */
-    disc_params.itvl = 0;
-    disc_params.window = 0;
+    disc_params.itvl = 0x0010;
+    disc_params.window = 0x0010;
     disc_params.filter_policy = 0;
     disc_params.limited = 0;
 
