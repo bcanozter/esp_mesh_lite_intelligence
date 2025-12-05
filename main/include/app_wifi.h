@@ -35,7 +35,22 @@ static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
 void wifi_init_sta(void);
 #if CONFIG_ENABLE_ARP_SCAN
+typedef struct arp_scan_result
+{
+    char ip[16];
+    char mac[18];
+    int *ports;
+} arp_scan_result_t;
+typedef struct arp_scan_result_list
+{
+    arp_scan_result_t *results;
+    int count;
+} arp_scan_result_list_t;
 void arp_scan();
+void arp_scan_result_list_init();
+void arp_scan_result_list_add(arp_scan_result_t *result);
+void arp_scan_result_list_free();
+void print_arp_scan_result_list();
 #endif
 #endif
 

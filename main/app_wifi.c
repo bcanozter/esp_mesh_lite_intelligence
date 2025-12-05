@@ -19,14 +19,61 @@ static char softap_psw[64] = "";
 static TaskHandle_t wifi_task_handle = NULL;
 bool sta_got_ip = false;
 
-#ifdef USE_CHANNEL_BITMAP
-void array_2_channel_bitmap(const uint8_t channel_list[], const uint8_t channel_list_size, wifi_scan_config_t *scan_config)
-{
+#if CONFIG_ENABLE_ARP_SCAN
+static arp_scan_result_list_t *arp_scan_result_list = NULL;
 
-    for (uint8_t i = 0; i < channel_list_size; i++)
+void arp_scan_result_list_init()
+{
+    arp_scan_result_list = (arp_scan_result_list_t *)calloc(1, sizeof(arp_scan_result_list_t));
+    if (!arp_scan_result_list)
     {
-        uint8_t channel = channel_list[i];
-        scan_config->channel_bitmap.ghz_2_channels |= (1 << channel);
+        ESP_LOGE(TAG, "Memory Allocation for arp scan result list failed!");
+        return;
+    }
+    arp_scan_result_list->count = 0;
+    arp_scan_result_list->results = NULL;
+}
+
+void arp_scan_result_list_add(arp_scan_result_t *result)
+{
+    if (!arp_scan_result_list)
+    {
+        ESP_LOGE(TAG, "ARP scan result list not initialized!");
+        return;
+    }
+    arp_scan_result_list->results = (arp_scan_result_t *)realloc(arp_scan_result_list->results, (arp_scan_result_list->count + 1) * sizeof(arp_scan_result_t));
+    if (!arp_scan_result_list->results)
+    {
+        ESP_LOGE(TAG, "Memory Allocation for arp scan result list results failed!");
+        return;
+    }
+    arp_scan_result_list->results[arp_scan_result_list->count] = *result;
+    arp_scan_result_list->count++;
+    ESP_LOGD(TAG, "Added ARP result to the list: %s -> " MACSTR, result->ip, MAC2STR(result->mac));
+}
+
+void arp_scan_result_list_free()
+{
+    if (arp_scan_result_list)
+    {
+        free(arp_scan_result_list->results);
+        arp_scan_result_list->results = NULL;
+        arp_scan_result_list->count = 0;
+        free(arp_scan_result_list);
+        arp_scan_result_list = NULL;
+    }
+}
+
+void print_arp_scan_result_list()
+{
+    if (!arp_scan_result_list)
+    {
+        ESP_LOGE(TAG, "ARP scan result list not initialized");
+        return;
+    }
+    for (int i = 0; i < arp_scan_result_list->count; i++)
+    {
+        ESP_LOGI(TAG, "Host %s -> %s ", arp_scan_result_list->results[i].ip, arp_scan_result_list->results[i].mac);
     }
 }
 #endif
@@ -96,7 +143,7 @@ void arp_scan()
     inet_ntoa_r(netmask, nm_str, sizeof(nm_str));
 
     uint32_t network_n = ntohl(ip_info.ip.addr) & ntohl(ip_info.netmask.addr); // e.g 192.168.1.136 & 255.255.255.0
-    uint32_t broadcast_n = network_n | (~(ntohl(ip_info.ip.addr)));
+    uint32_t broadcast_n = network_n | (~(ntohl(ip_info.netmask.addr)));
 
     ESP_LOGI(TAG, "Station IP: %s  Netmask Addr: %s",
              ip_str, nm_str);
@@ -137,13 +184,26 @@ void arp_scan()
         struct eth_addr *eth_ret = NULL;
         if (etharp_find_addr(lwip_netif, &target, &eth_ret, &ip_ret) != -1 && eth_ret != NULL)
         {
-            ESP_LOGI(TAG, "Host %s -> " MACSTR,
-                     ip_str,
-                     MAC2STR(eth_ret->addr));
+            arp_scan_result_t *result = (arp_scan_result_t *)calloc(1, sizeof(arp_scan_result_t));
+            if (!result)
+            {
+                ESP_LOGE(TAG, "Memory Allocation for arp scan result failed!");
+                continue;
+            }
+            strlcpy(result->ip, ip_str, sizeof(result->ip));
+            char mac_str[18] = {0};
+            sprintf(mac_str, MACSTR, MAC2STR(eth_ret->addr));
+            strlcpy(result->mac, mac_str, sizeof(result->mac));
+            arp_scan_result_list_add(result);
+            free(result);
         }
+        ESP_LOGI(TAG,"ARP Scan in progress %u%%",((((h - first_host) * 100) /(last_host - first_host + 1))));
     }
 
     ESP_LOGI(TAG, "ARP scan finished");
+    print_arp_scan_result_list();
+    arp_scan_result_list_free();
+    arp_scan_result_list_init();
 }
 
 // TODO: get connected clients
@@ -186,18 +246,22 @@ void wifi_scan(void)
 
 void wifi_task_main(void *pvParameter)
 {
-
+#if CONFIG_ENABLE_ARP_SCAN
+    arp_scan_result_list_init();
+#endif
     ESP_LOGI(TAG, "Start wifi_task");
     wifi_init();
     while (1)
     {
-        // TODO
-        //  gather client info
-        //  wifi_scan() //rename
-        // if (sta_got_ip)
-        // {
-        //     arp_scan();
-        // }
+// TODO
+//  gather client info
+//  wifi_scan() //rename
+#if CONFIG_ENABLE_ARP_SCAN
+        if (sta_got_ip)
+        {
+            arp_scan();
+        }
+#endif
         vTaskDelay(60000 / portTICK_PERIOD_MS);
     }
 }
